@@ -1,0 +1,46 @@
+name: Update rates
+
+# Refreshes rates.json, which the page reads from the same origin. Nothing is
+# scraped from the browser, so there is no CORS problem and no server to pay for.
+
+on:
+  schedule:
+    # GitHub does not promise the exact minute for scheduled runs; under load
+    # they can start several minutes late. That is fine for a reference rate.
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+# The workflow only pushes rates.json back to the repository.
+permissions:
+  contents: write
+
+# Never let two runs race on the same commit.
+concurrency:
+  group: update-rates
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show python version
+        run: python3 -V
+
+      # Exits non-zero only when every source failed. A single dead source keeps
+      # its previous value and is flagged stale inside rates.json instead.
+      - name: Fetch rates
+        run: python3 scripts/fetch_rates.py
+
+      - name: Commit rates.json when it changed
+        run: |
+          if git diff --quiet -- rates.json; then
+            echo "rates.json sin cambios, nada que commitear"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add rates.json
+          git commit -m "chore(rates): refresh exchange rates"
+          git push
