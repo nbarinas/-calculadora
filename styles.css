@@ -1,0 +1,232 @@
+:root {
+  --bg: #0b1220;
+  --card: #141d31;
+  --card-2: #1b2740;
+  --line: #2a3855;
+  --text: #eef2f9;
+  --muted: #9aabc6;
+  --accent: #4ade80;
+  --accent-dim: #22633d;
+  --warn: #fbbf24;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  padding: max(16px, env(safe-area-inset-top)) 16px
+           max(24px, env(safe-area-inset-bottom));
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+main { max-width: 560px; margin: 0 auto; }
+
+/* --- header ------------------------------------------------------------ */
+
+.top { max-width: 560px; margin: 0 auto 16px; }
+
+.top h1 {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.updated { margin: 0; font-size: 0.82rem; color: var(--muted); }
+.updated.is-stale { color: var(--warn); }
+
+/* --- cards ------------------------------------------------------------- */
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.card h2 { margin: 0 0 8px; font-size: 0.95rem; color: var(--muted); font-weight: 600; }
+
+.hint { margin: 6px 0 0; font-size: 0.78rem; color: var(--muted); }
+.hint code { background: var(--card-2); padding: 1px 5px; border-radius: 5px; }
+
+/* Says out loud how a typed number was read, so a misread magnitude is visible
+   while typing instead of silently multiplying every result. */
+.read-as { margin: 4px 0 0; font-size: 0.78rem; color: var(--accent); }
+.read-as:empty { display: none; }
+.rate-meta .read-as { color: var(--accent); }
+
+.note p { margin: 0; font-size: 0.88rem; color: var(--muted); }
+
+/* --- amount input ------------------------------------------------------ */
+
+.field { display: block; }
+.field-label { font-size: 0.78rem; color: var(--muted); }
+
+.field input {
+  width: 100%;
+  margin-top: 4px;
+  padding: 10px 12px;
+  font-size: 1.9rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* --- currency tabs ----------------------------------------------------- */
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 14px;
+  padding: 4px;
+  background: var(--card-2);
+  border-radius: 11px;
+}
+
+.tabs button {
+  padding: 11px 4px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.tabs button[aria-selected="true"] { background: var(--accent); color: #06210f; }
+
+/* --- results ----------------------------------------------------------- */
+
+.results { margin-top: 16px; }
+
+.result {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.result:first-child { border-top: 0; padding-top: 0; }
+
+.result-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.result-target { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+.result-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 0 0;
+}
+
+.line-source { font-size: 0.86rem; color: var(--text); }
+.line-hint { display: block; font-size: 0.72rem; color: var(--muted); }
+
+.line-value {
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.result.from-ves .line-value { color: var(--accent); }
+
+/* --- rates panel ------------------------------------------------------- */
+
+.rate-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+
+.rate-row:first-child { border-top: 0; }
+
+.rate-name { font-size: 0.9rem; font-weight: 600; }
+.rate-name .tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  vertical-align: 1px;
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+  border-radius: 20px;
+}
+
+.rate-name .tag.stale { color: var(--warn); border-color: var(--warn); }
+
+.rate-meta { grid-column: 1 / -1; font-size: 0.72rem; color: var(--muted); }
+
+.rate-input {
+  width: 132px;
+  padding: 8px 10px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text);
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.rate-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rate-input.is-manual { border-color: var(--accent); color: var(--accent); }
+
+.ghost {
+  margin-top: 12px;
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 0.84rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.ghost:hover { color: var(--text); border-color: var(--muted); }
+
+/* --- footer ------------------------------------------------------------ */
+
+.foot {
+  max-width: 560px;
+  margin: 18px auto 0;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.foot p { margin: 0; }
+
+@media (min-width: 420px) {
+  .result-value { font-size: 1.75rem; }
+  .field input { font-size: 2.1rem; }
+}

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Prueba de interacción</title>
+<style>body { font: 14px monospace; } iframe { border: 1px solid #888; }</style>
+</head>
+<body>
+<pre id="out">corriendo…</pre>
+<iframe id="app" src="../index.html" width="420" height="620"></iframe>
+<script>
+/*
+ * Drives the real page in a real browser, through a same-origin iframe, and
+ * prints what the app did. `--dump-dom` alone cannot type, and the manual rate
+ * field is exactly where the thousand-fold misreading used to happen.
+ */
+const out = document.getElementById('out');
+const lines = [];
+
+function say(name, actual) {
+  lines.push(`${name}: ${JSON.stringify(actual)}`);
+}
+
+function type(win, element, text) {
+  element.value = text;
+  element.dispatchEvent(new win.Event('input', { bubbles: true }));
+}
+
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    try {
+      const frame = document.getElementById('app');
+      const doc = frame.contentDocument;
+      const win = frame.contentWindow;
+
+      // 1. Paste the Binance price, exactly as Binance shows it.
+      const binance = doc.querySelector('[data-key="binance"]');
+      type(win, binance, '1011.500');
+      say('nota de la tasa', doc.querySelector('[data-read-as="binance"]').textContent.trim());
+      say('quedo marcada como tu valor', binance.classList.contains('is-manual'));
+      say('aparece el boton de volver', !doc.getElementById('reset-rates').hidden);
+
+      // 2. The result must be built on 1011.5, not on 1011500 and not on the
+      //    fetched rate. Only 1011.5 produces 317.907,81 here.
+      say('resultado en Bs', [...doc.querySelectorAll('.line-value')].map((n) => n.textContent));
+
+      // 3. An amount that could be read two ways must say which one was used.
+      type(win, doc.getElementById('amount'), '1000.500');
+      say('nota del monto', doc.getElementById('amount-note').textContent.trim());
+
+      // 4. Clearing the field must drop the override instead of using zero.
+      type(win, binance, '');
+      say('el boton de volver se esconde', doc.getElementById('reset-rates').hidden);
+      say('vuelve la tasa automatica', [...doc.querySelectorAll('.line-value')].map((n) => n.textContent));
+
+      out.textContent = lines.join('\n');
+    } catch (error) {
+      out.textContent = `ERROR: ${error.message}\n${lines.join('\n')}`;
+    }
+  }, 2500);
+});
+</script>
+</body>
+</html>
