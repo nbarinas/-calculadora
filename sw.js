@@ -8,7 +8,7 @@
  */
 'use strict';
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL_CACHE = `calc-shell-${VERSION}`;
 const RATES_CACHE = `calc-rates-${VERSION}`;
 
@@ -53,16 +53,28 @@ async function networkFirst(request) {
   }
 }
 
-async function cacheFirst(request) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
+/**
+ * Serve the shell from the cache, so the app opens instantly and works offline,
+ * and refresh that copy from the network in the background. The next load gets
+ * the new version.
+ *
+ * Plain cache-first was the wrong choice here, and it was a real defect: the
+ * shell would never update after a deploy unless the cache name changed, so
+ * every fix stayed invisible on an installed phone until someone remembered to
+ * bump VERSION. With this, a deploy reaches an installed client on its own.
+ */
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(SHELL_CACHE);
+  const cached = await cache.match(request);
 
-  const response = await fetch(request);
-  if (response.ok && response.type === 'basic') {
-    const cache = await caches.open(SHELL_CACHE);
-    cache.put(request, response.clone());
-  }
-  return response;
+  const fresh = fetch(request)
+    .then((response) => {
+      if (response.ok && response.type === 'basic') cache.put(request, response.clone());
+      return response;
+    })
+    .catch(() => cached);
+
+  return cached || fresh;
 }
 
 self.addEventListener('fetch', (event) => {
@@ -73,6 +85,8 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    url.pathname.endsWith('/rates.json') ? networkFirst(request) : cacheFirst(request),
+    url.pathname.endsWith('/rates.json')
+      ? networkFirst(request)
+      : staleWhileRevalidate(request),
   );
 });

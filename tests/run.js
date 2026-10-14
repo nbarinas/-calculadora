@@ -181,6 +181,21 @@ for (const file of precached) {
     fs.existsSync(path.join(__dirname, '..', file)), true);
 }
 
+// A syntax error in the service worker silently kills offline mode, and nothing
+// else in the suite would notice. Parsing it is cheap and catches that.
+let swSyntax = 'ok';
+try {
+  new Function(swSource);
+} catch (error) {
+  swSyntax = error.message;
+}
+check('sw.js no tiene errores de sintaxis', swSyntax, 'ok');
+
+// The shell must not be cache-first only: that is what kept a deploy from ever
+// reaching an installed phone until VERSION was bumped by hand.
+check('sw.js refresca el shell desde la red, no solo desde el cache',
+  swSource.includes('staleWhileRevalidate'), true);
+
 /* --- live refresh: the three sources a page can reach ------------------ */
 
 const TRM_PAYLOAD = [{ valor: '3181.74', vigenciadesde: '2026-10-14T00:00:00.000' }];
