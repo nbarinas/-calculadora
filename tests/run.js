@@ -181,6 +181,59 @@ for (const file of precached) {
     fs.existsSync(path.join(__dirname, '..', file)), true);
 }
 
+/* --- live refresh: the three sources a page can reach ------------------ */
+
+const TRM_PAYLOAD = [{ valor: '3181.74', vigenciadesde: '2026-10-14T00:00:00.000' }];
+
+check('readTrm: lee el valor y la fecha', Calc.readTrm(TRM_PAYLOAD),
+  { value: 3181.74, asOf: '2026-10-14T00:00:00.000' });
+check('readTrm: lista vacia', Calc.readTrm([]), null);
+check('readTrm: nulo', Calc.readTrm(null), null);
+check('readTrm: valor basura', Calc.readTrm([{ valor: 'no es un numero' }]), null);
+check('readTrm: cero no es una tasa', Calc.readTrm([{ valor: '0' }]), null);
+
+check('readDolarApi: lee el promedio', Calc.readDolarApi({ promedio: 877.9023, fechaActualizacion: 'x' }),
+  { value: 877.9023, asOf: 'x' });
+check('readDolarApi: sin promedio', Calc.readDolarApi({}), null);
+check('readDolarApi: nulo', Calc.readDolarApi(null), null);
+
+check('liveSources: son las tres tasas', Calc.LIVE_SOURCES.map((s) => s.key), ['trm', 'bcv', 'binance']);
+check('liveSources: Binance P2P directo no es alcanzable desde el navegador, asi que va por DolarApi',
+  Calc.LIVE_SOURCES.find((s) => s.key === 'binance').url.includes('dolarapi'), true);
+check('liveSources: cada una sabe leer su respuesta',
+  Calc.LIVE_SOURCES.every((s) => typeof s.read === 'function'), true);
+
+const PREVIOUS = {
+  updatedAt: 'viejo',
+  rates: {
+    trm: { value: 3000, asOf: 'a', source: 'datos.gov.co', stale: false },
+    bcv: { value: 800, asOf: 'b', source: 've.dolarapi.com', stale: false },
+    binance: { value: 1000, asOf: null, source: 'p2p.binance.com', stale: false },
+  },
+};
+const MERGED = Calc.mergeLiveReadings(PREVIOUS, {
+  trm: { value: 3181.74, asOf: 'c', source: 'datos.gov.co' },
+  bcv: null,
+  binance: { value: 1010.5, asOf: null, source: 've.dolarapi.com' },
+}, 'AHORA');
+
+check('mergeLiveReadings: la que responde queda fresca', MERGED.rates.trm.stale, false);
+check('mergeLiveReadings: y con el valor nuevo', MERGED.rates.trm.value, 3181.74);
+check('mergeLiveReadings: la que no responde conserva su valor', MERGED.rates.bcv.value, 800);
+check('mergeLiveReadings: y queda marcada como vieja', MERGED.rates.bcv.stale, true);
+check('mergeLiveReadings: la lista de fallas lo dice', MERGED.failed, ['bcv']);
+check('mergeLiveReadings: la marca de tiempo se renueva', MERGED.updatedAt, 'AHORA');
+check('mergeLiveReadings: la fuente se actualiza a la que respondio',
+  MERGED.rates.binance.source, 've.dolarapi.com');
+check('mergeLiveReadings: sin previo y sin respuesta queda sin valor',
+  Calc.mergeLiveReadings(null, { trm: null }, 'AHORA').rates.trm.value, undefined);
+check('mergeLiveReadings: sin previo y sin respuesta queda marcada',
+  Calc.mergeLiveReadings(null, { trm: null }, 'AHORA').failed, ['trm', 'bcv', 'binance']);
+check('mergeLiveReadings: un valor no utilizable no se cree',
+  Calc.mergeLiveReadings(null, { trm: { value: 0 } }, 'AHORA').rates.trm.stale, true);
+check('mergeLiveReadings: un previo sin rates no rompe',
+  Calc.mergeLiveReadings({ updatedAt: 'x' }, { bcv: { value: 900 } }, 'AHORA').rates.bcv.value, 900);
+
 /* --- report ------------------------------------------------------------ */
 
 console.log(`calc.js: ${passed} pasaron, ${failures.length} fallaron`);

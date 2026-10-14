@@ -10,8 +10,8 @@
 
 (function () {
   const {
-    UNIT, isNumber, parseAmount, parseRate, interpretationNote,
-    formatAmount, formatRate, dateOnly, effectiveRates, resultRows,
+    UNIT, LIVE_SOURCES, isNumber, parseAmount, parseRate, interpretationNote,
+    formatAmount, formatRate, dateOnly, effectiveRates, resultRows, mergeLiveReadings,
   } = window.Calc;
 
   const SOURCE_LABEL = {
@@ -32,6 +32,7 @@
   const MANUAL_KEY = 'calc.rates.manual';
   const PREF_KEY = 'calc.prefs';
   const REFRESH_AFTER_MS = 15 * 60 * 1000;
+  const LIVE_TIMEOUT_MS = 8000;
 
   const state = {
     amount: 1000000,
@@ -248,6 +249,54 @@
     renderRates();
   }
 
+  /* --- live refresh ---------------------------------------------------- */
+
+  function setRefreshStatus(text) {
+    const node = document.getElementById('refresh-status');
+    if (node) node.textContent = text;
+  }
+
+  /**
+   * Ask the three sources directly, because waiting half an hour for the
+   * scheduled workflow is sometimes not good enough. Two of the three can be
+   * reached from a page and the third cannot; see LIVE_SOURCES in calc.js.
+   *
+   * A source that does not answer keeps the value it already had and is marked
+   * stale, so a partial refresh is never presented as a complete one.
+   */
+  async function refreshLive() {
+    const button = document.getElementById('refresh');
+    button.disabled = true;
+    setRefreshStatus('Consultando las tres fuentes…');
+
+    const readings = {};
+    await Promise.all(LIVE_SOURCES.map(async (source) => {
+      try {
+        const response = await fetch(source.url, {
+          signal: AbortSignal.timeout(LIVE_TIMEOUT_MS),
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const reading = source.read(await response.json());
+        readings[source.key] = reading
+          ? Object.assign({}, reading, { source: source.source })
+          : null;
+      } catch (error) {
+        readings[source.key] = null;
+      }
+    }));
+
+    state.rates = mergeLiveReadings(state.rates, readings, new Date().toISOString());
+    state.offline = state.rates.failed.length === LIVE_SOURCES.length;
+    state.lastLoad = Date.now();
+    writeStore(CACHE_KEY, state.rates);
+    renderAll();
+
+    setRefreshStatus(state.rates.failed.length
+      ? `No respondió: ${state.rates.failed.join(', ')}. Se sigue con lo que había.`
+      : 'Tasas pedidas de nuevo, en vivo.');
+    button.disabled = false;
+  }
+
   /* --- events ---------------------------------------------------------- */
 
   function onAmountInput(event) {
@@ -339,6 +388,7 @@
     document.getElementById('currency').addEventListener('click', onCurrencyClick);
     document.getElementById('rates').addEventListener('input', onRateInput);
     document.getElementById('rates').addEventListener('focusout', onRateBlur);
+    document.getElementById('refresh').addEventListener('click', refreshLive);
     document.getElementById('reset-rates').addEventListener('click', onResetRates);
 
     for (const tab of document.querySelectorAll('#currency button')) {

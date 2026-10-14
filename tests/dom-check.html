@@ -26,6 +26,10 @@ function type(win, element, text) {
   element.dispatchEvent(new win.Event('input', { bubbles: true }));
 }
 
+function done() {
+  out.textContent = lines.join('\n');
+}
+
 window.addEventListener('load', () => {
   setTimeout(() => {
     try {
@@ -53,7 +57,26 @@ window.addEventListener('load', () => {
       say('el boton de volver se esconde', doc.getElementById('reset-rates').hidden);
       say('vuelve la tasa automatica', [...doc.querySelectorAll('.line-value')].map((n) => n.textContent));
 
-      out.textContent = lines.join('\n');
+      // 5. The refresh button has to reach the live sources from the browser.
+      //    TRM and both DolarApi rates are reachable; Binance P2P is not, which
+      //    is why the button asks DolarApi for both Venezuelan rates.
+      say('existe el boton de actualizar', Boolean(doc.getElementById('refresh')));
+      doc.getElementById('refresh').click();
+
+      let tries = 0;
+      const poll = () => {
+        const status = doc.getElementById('refresh-status').textContent.trim();
+        if (status && !status.startsWith('Consultando')) {
+          say('estado del boton', status);
+          say('marca de actualizacion', doc.getElementById('updated').textContent.trim());
+          say('fuente de cada tasa', [...doc.querySelectorAll('.rate-meta')].map((n) => n.textContent.trim()));
+          done();
+          return;
+        }
+        if (++tries > 80) { say('estado del boton', 'SIN RESPUESTA tras 20s'); done(); return; }
+        setTimeout(poll, 250);
+      };
+      setTimeout(poll, 500);
     } catch (error) {
       out.textContent = `ERROR: ${error.message}\n${lines.join('\n')}`;
     }

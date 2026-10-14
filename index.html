@@ -40,9 +40,14 @@
 
   <section class="card">
     <h2>Tasas</h2>
-    <p class="hint">Si no coinciden con lo que ves en la calle, escribí la tuya y la cuenta se rehace sola.</p>
+    <p class="hint">Si no coinciden con lo que ves en la calle, escribí la tuya y la cuenta se rehace sola.
+       El botón las pide de nuevo en el momento, sin esperar a la actualización automática.</p>
     <div id="rates"></div>
-    <button type="button" id="reset-rates" class="ghost" hidden>Volver a las tasas automáticas</button>
+    <div class="rates-actions">
+      <button type="button" id="refresh" class="ghost">Actualizar ahora</button>
+      <button type="button" id="reset-rates" class="ghost" hidden>Volver a las tasas automáticas</button>
+    </div>
+    <p class="refresh-status" id="refresh-status" role="status"></p>
   </section>
 
   <section class="card note">

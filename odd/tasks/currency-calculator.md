@@ -42,6 +42,13 @@ The last known rates are cached on the device so the calculator keeps working wi
 Public repository, GitHub Pages, no paid service, no server, no API keys.
 > "me gustaria cargar en gihutb para no pagar nada"
 
+**S8 — Refresh on demand, from the page itself.**
+A button in the page asks the three sources directly and updates what it shows, without waiting for the scheduled
+workflow. Binance P2P cannot be reached from a browser: its preflight answers without CORS headers, so the live path
+uses DolarApi for both Venezuelan rates, which publishes the same parallel reference. A source that does not answer
+keeps the value it already had and is marked stale.
+> "pero que tenemos que hacer para que si se actulice asi sea con un boton?"
+
 ## Tasks
 
 | ID | Task | Specs | Route | Commit |
@@ -56,6 +63,9 @@ Public repository, GitHub Pages, no paid service, no server, no API keys.
 | T8 | Publish: repository, Pages, push | S7 | user-owned | n/a |
 | T9 | Manual check on a real phone: type a rate by hand, then reload with the network off | S6 | user-owned | n/a |
 | T10 | Fix and cover the three findings of the independent verifier | S6, S4 | inline | pending |
+| T11 | Close the advisories the re-verification left | S6, S4 | inline | pending |
+| T12 | Native review of the candidate | all | provider-owned | n/a |
+| T13 | Refresh button inside the page | S8 | inline | pending |
 
 ## Log
 
@@ -297,3 +307,32 @@ Two advisories were deliberately left unfixed, with the reason recorded rather t
   define the price. A known trade-off, not an oversight.
 - The verifier could not show RED-then-GREEN for the D1/D2/D3 tests because no baseline commit exists yet. The
   demonstration above is the substitute, and T8 will produce the commits.
+
+**L12 — The user asked for a refresh button, and what a browser can actually reach (2026-10-14).**
+
+> "pero que tenemos que hacer para que si se actulice asi sea con un boton?"
+
+Before writing any code, the three endpoints were asked for their CORS headers, because the answer decides whether an
+in-page button is possible at all:
+
+| Endpoint | Reachable from a browser |
+|---|---|
+| TRM, `datos.gov.co` | yes — `Access-Control-Allow-Origin: *` |
+| BCV, `ve.dolarapi.com/v1/dolares/oficial` | yes — `access-control-allow-origin: *` |
+| parallel, `ve.dolarapi.com/v1/dolares/paralelo` | yes — `access-control-allow-origin: *` |
+| Binance P2P | **no** — the OPTIONS preflight answers 200 with no `access-control-allow-*` header, so the browser blocks it |
+
+That is why the live path asks DolarApi for both Venezuelan rates instead of Binance. It is not a downgrade: the two
+were measured at `1010.3135` and `1011.500`, within 0.15%. The workflow keeps fetching Binance directly, where no browser
+can block it, and each rate row shows the source that actually answered, so the page never claims a number came from a
+place it did not.
+
+Verified: 111 JS tests and 15 Python tests, both zero failures, and the button was clicked in a real headless browser,
+which reached all three sources and reported `Tasas pedidas de nuevo, en vivo.` with the three source labels. Console
+errors: 0. A structural check also confirmed that every id `app.js` looks up exists in `index.html`, which is the classic
+way a new button silently does nothing.
+
+Recorded for later, because it would otherwise be discovered as a surprise: the lineage `review-3da0e1ad3b41fe93` was
+frozen on candidate tree `a0eef89`. These edits move the candidate content, so once they are committed that transaction
+can no longer complete against the frozen revision and a fresh START would be needed. It was already blocked on the
+missing reviewer model, so nothing is lost, but the fact is written down rather than remembered.

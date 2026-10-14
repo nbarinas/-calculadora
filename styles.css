@@ -214,6 +214,12 @@ main { max-width: 560px; margin: 0 auto; }
 }
 
 .ghost:hover { color: var(--text); border-color: var(--muted); }
+.ghost:disabled { opacity: 0.55; cursor: progress; }
+
+.rates-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.refresh-status { margin: 8px 0 0; font-size: 0.78rem; color: var(--muted); }
+.refresh-status:empty { display: none; }
 
 /* --- footer ------------------------------------------------------------ */
 
