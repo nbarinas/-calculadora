@@ -1,2 +1,6 @@
 # Harness state, not part of the app.
 .atl/
+
+# Python bytecode caches, left behind by running the tests.
+__pycache__/
+*.pyc
