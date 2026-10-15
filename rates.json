@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-15T06:15:55Z",
+  "updatedAt": "2026-10-15T11:56:35Z",
   "failed": [],
   "rates": {
     "trm": {
@@ -15,16 +15,16 @@
       "stale": false
     },
     "binance": {
-      "value": 1007.6,
+      "value": 1008.755,
       "asOf": null,
       "source": "p2p.binance.com",
-      "sellMedian": 1007.6,
-      "buyMedian": 1011.8,
+      "sellMedian": 1008.755,
+      "buyMedian": 1010.5,
       "samples": {
-        "sell": 19,
-        "buy": 19
+        "sell": 20,
+        "buy": 20
       },
-      "roundTripPct": 0.4168,
+      "roundTripPct": 0.173,
       "stale": false
     }
   }
