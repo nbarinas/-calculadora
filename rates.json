@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-18T23:58:23Z",
+  "updatedAt": "2026-10-19T04:26:47Z",
   "failed": [],
   "rates": {
     "trm": {
@@ -9,22 +9,22 @@
       "stale": false
     },
     "bcv": {
-      "value": 880.1159,
-      "asOf": "2026-10-16T00:00:00-04:00",
+      "value": 881.0664,
+      "asOf": "2026-10-19T00:00:00-04:00",
       "source": "ve.dolarapi.com",
       "stale": false
     },
     "binance": {
-      "value": 1004.1055,
+      "value": 1002.475,
       "asOf": null,
       "source": "p2p.binance.com",
-      "sellMedian": 1004.1055,
-      "buyMedian": 1006.5,
+      "sellMedian": 1002.475,
+      "buyMedian": 1006.3,
       "samples": {
         "sell": 20,
         "buy": 20
       },
-      "roundTripPct": 0.2385,
+      "roundTripPct": 0.3816,
       "stale": false
     }
   }
