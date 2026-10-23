@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch the three exchange rates used by the calculator into rates.json.
+"""Fetch the five exchange rates used by the calculator into rates.json.
 
 Sources
     TRM      https://www.datos.gov.co/resource/32sa-8pi3.json    Colombia, official
@@ -8,6 +8,8 @@ Sources
              certificate, so that one request runs with an unverified context)
     Binance  https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search
              Venezuela, parallel: the rate actually used on the street
+    Euro BCV https://ve.dolarapi.com/v1/euros/oficial             Bs per EUR, official
+    Euro par https://ve.dolarapi.com/v1/euros/paralelo            Bs per EUR, street
 
 Design rules
     * A failing source never destroys the file. The previous value is kept and
@@ -15,6 +17,10 @@ Design rules
     * The Binance price is a median over the sampled ads, never data[0]. The
       top-ranked ad is regularly a broken ad, for example with an inverted
       amount band, that only ranks first because of how it was posted.
+    * The euro is quoted in Venezuela in bolívares, so its two readings come from
+      DolarApi like the two dollar ones. Binance P2P cannot supply the street
+      euro: asked for EUR/VES it answers `data: []`, `total: 0`, because that
+      order book does not exist there.
     * Standard library only, so the GitHub Actions runner needs no install step.
 
 Exit code is 0 unless every source failed, which keeps a partial failure visible
@@ -46,6 +52,8 @@ TRM_URL = "https://www.datos.gov.co/resource/32sa-8pi3.json?$limit=1&$order=vige
 BCV_API_URL = "https://ve.dolarapi.com/v1/dolares/oficial"
 BCV_SITE_URL = "https://www.bcv.org.ve/"
 P2P_URL = "https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search"
+EUR_BCV_API_URL = "https://ve.dolarapi.com/v1/euros/oficial"
+EUR_PARALLEL_API_URL = "https://ve.dolarapi.com/v1/euros/paralelo"
 
 # How many ads the median is taken over, and how far to look for the BCV figure.
 BINANCE_SAMPLE = 20
@@ -94,15 +102,25 @@ def fetch_trm():
     }
 
 
+def _fetch_dolarapi(url):
+    """One DolarApi payload as a rate entry, in bolívares per unit.
+
+    Shared by the four Venezuelan rates. The euro and the dollar arrive in the
+    same shape and are therefore read by the same code; only the URL differs, and
+    a euro read from the dollar endpoint would be a silent lie about money.
+    """
+    document = _fetch_json(url)
+    return {
+        "value": float(document["promedio"]),
+        "asOf": document.get("fechaActualizacion"),
+        "source": "ve.dolarapi.com",
+    }
+
+
 def fetch_bcv():
     """Venezuela's official rate, pre-aggregated, with the BCV site as fallback."""
     try:
-        document = _fetch_json(BCV_API_URL)
-        return {
-            "value": float(document["promedio"]),
-            "asOf": document.get("fechaActualizacion"),
-            "source": "ve.dolarapi.com",
-        }
+        return _fetch_dolarapi(BCV_API_URL)
     except Exception as api_error:
         html = _fetch(BCV_SITE_URL, insecure=True)
         match = re.search(
@@ -118,6 +136,25 @@ def fetch_bcv():
             "source": "bcv.org.ve",
             "note": f"dolarapi fallo, scrapeo del BCV: {api_error}",
         }
+
+
+def fetch_eur_bcv():
+    """The official euro, in bolívares: the BCV's own euro reference.
+
+    Quoted per euro and not per dollar, which is why it is its own source and not
+    a factor applied to the dollar rate.
+    """
+    return _fetch_dolarapi(EUR_BCV_API_URL)
+
+
+def fetch_eur_paralelo():
+    """The street euro, in bolívares.
+
+    No order book corroborates this one: Binance P2P has no EUR/VES market, so
+    the parallel euro is a single aggregation and is labelled as such on the
+    page rather than presented as an average of venues.
+    """
+    return _fetch_dolarapi(EUR_PARALLEL_API_URL)
 
 
 def _p2p_medians(trade_type, rows=BINANCE_SAMPLE):
@@ -198,6 +235,8 @@ SOURCES = {
     "trm": fetch_trm,
     "bcv": fetch_bcv,
     "binance": fetch_binance,
+    "eur_bcv": fetch_eur_bcv,
+    "eur_paralelo": fetch_eur_paralelo,
 }
 
 

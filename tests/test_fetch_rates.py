@@ -95,6 +95,57 @@ class BinanceAggregation(unittest.TestCase):
         self.assertEqual(entry["roundTripPct"], 0.0)
 
 
+class EuroSources(unittest.TestCase):
+    """The euro is quoted in Venezuela, in bolívares, by two readings (S9/L13).
+
+    Both endpoints answer with the same shape as the dollar ones, which is why
+    they reuse the same reader; what these tests pin is which URL each key comes
+    from, because a euro read from the dollar endpoint would be a silent lie.
+    """
+
+    def setUp(self):
+        self.saved = fetch_rates._fetch_json
+        self.addCleanup(setattr, fetch_rates, "_fetch_json", self.saved)
+
+    def answer(self, payload, expected_path):
+        """Serve one payload, and refuse to serve it from the wrong URL."""
+        def fake(url, **kwargs):
+            self.assertTrue(url.endswith(expected_path), f"URL inesperada: {url}")
+            return payload
+
+        fetch_rates._fetch_json = fake
+
+    def test_the_official_euro_comes_from_the_official_endpoint(self):
+        self.answer(
+            {"promedio": 982.75895071, "fechaActualizacion": "2026-10-14T00:00:00-04:00"},
+            "/euros/oficial",
+        )
+        entry = fetch_rates.fetch_eur_bcv()
+        self.assertEqual(entry["value"], 982.75895071)
+        self.assertEqual(entry["asOf"], "2026-10-14T00:00:00-04:00")
+        self.assertEqual(entry["source"], "ve.dolarapi.com")
+
+    def test_the_parallel_euro_comes_from_the_parallel_endpoint(self):
+        self.answer(
+            {"promedio": 1125.469688, "fechaActualizacion": "2026-10-14T21:01:08.350Z"},
+            "/euros/paralelo",
+        )
+        entry = fetch_rates.fetch_eur_paralelo()
+        self.assertEqual(entry["value"], 1125.469688)
+        self.assertEqual(entry["source"], "ve.dolarapi.com")
+
+    def test_a_payload_without_promedio_is_a_failure_not_a_zero(self):
+        self.answer({"moneda": "EUR", "fuente": "oficial"}, "/euros/oficial")
+        with self.assertRaises(Exception):
+            fetch_rates.fetch_eur_bcv()
+
+    def test_the_five_rates_are_the_ones_that_get_fetched(self):
+        self.assertEqual(
+            sorted(fetch_rates.SOURCES),
+            ["bcv", "binance", "eur_bcv", "eur_paralelo", "trm"],
+        )
+
+
 class PreviousFile(unittest.TestCase):
     def setUp(self):
         self.directory = Path(tempfile.mkdtemp())
@@ -116,6 +167,8 @@ class PreviousFile(unittest.TestCase):
             "trm": overrides.get("trm", ok(3181.74)),
             "bcv": overrides.get("bcv", ok(877.9)),
             "binance": overrides.get("binance", ok(1011.0)),
+            "eur_bcv": overrides.get("eur_bcv", ok(982.75895071)),
+            "eur_paralelo": overrides.get("eur_paralelo", ok(1125.469688)),
         }
 
     def run_main(self):
@@ -139,12 +192,17 @@ class PreviousFile(unittest.TestCase):
 
     def test_every_source_down_keeps_the_file_and_exits_nonzero(self):
         self.write(json.dumps({"rates": {"trm": {"value": 3181.74, "source": "x"}}}))
-        self.sources(trm=down, bcv=down, binance=down)
+        self.sources(
+            trm=down, bcv=down, binance=down, eur_bcv=down, eur_paralelo=down
+        )
         self.assertEqual(self.run_main(), 1)
 
         document = self.read()
         self.assertEqual(document["rates"]["trm"]["value"], 3181.74)
-        self.assertEqual(sorted(document["failed"]), ["bcv", "binance", "trm"])
+        self.assertEqual(
+            sorted(document["failed"]),
+            ["bcv", "binance", "eur_bcv", "eur_paralelo", "trm"],
+        )
         self.assertIsNone(document["rates"]["bcv"]["value"])
 
     def test_a_previous_file_of_the_wrong_shape_does_not_crash(self):
@@ -191,6 +249,65 @@ class PreviousFile(unittest.TestCase):
         self.sources(trm=down)
         self.assertEqual(self.run_main(), 0)
         self.assertIsNone(self.read()["rates"]["trm"]["value"])
+
+    def test_the_euro_rates_are_written_into_the_file(self):
+        """The two euro keys reach rates.json, or the page has nothing to cross."""
+        self.sources()
+        self.assertEqual(self.run_main(), 0)
+
+        rates = self.read()["rates"]
+        self.assertEqual(rates["eur_bcv"]["value"], 982.75895071)
+        self.assertEqual(rates["eur_paralelo"]["value"], 1125.469688)
+        self.assertFalse(rates["eur_paralelo"]["stale"])
+
+    def test_a_dead_euro_source_keeps_its_previous_euro_value(self):
+        self.write(json.dumps({
+            "rates": {"eur_paralelo": {"value": 1120.0, "source": "ve.dolarapi.com"}}
+        }))
+        self.sources(eur_paralelo=down)
+        self.assertEqual(self.run_main(), 0)
+
+        document = self.read()
+        self.assertEqual(document["rates"]["eur_paralelo"]["value"], 1120.0)
+        self.assertTrue(document["rates"]["eur_paralelo"]["stale"])
+        self.assertEqual(document["failed"], ["eur_paralelo"])
+        # The other euro reading is unaffected: one dead source never takes the
+        # coherent pair down with it.
+        self.assertFalse(document["rates"]["eur_bcv"]["stale"])
+
+    def test_only_the_euro_sources_down_still_exits_zero(self):
+        self.sources(eur_bcv=down, eur_paralelo=down)
+        self.assertEqual(self.run_main(), 0)
+        self.assertEqual(sorted(self.read()["failed"]), ["eur_bcv", "eur_paralelo"])
+
+    def test_each_euro_failure_mode_keeps_only_its_key(self):
+        """A dead, NaN or zero euro fails its own key and touches nothing else.
+
+        Written from the independent verifier's probe, which asked for all three
+        shapes of a broken euro instead of only the dead endpoint.
+        """
+        self.write(json.dumps({"rates": {
+            "eur_bcv": {"value": 982.75, "source": "ve.dolarapi.com"},
+            "eur_paralelo": {"value": 1125.47, "source": "ve.dolarapi.com"},
+        }}))
+        for name, broken in (
+            ("endpoint caido", down),
+            ("NaN", lambda: {"value": float("nan"), "source": "test"}),
+            ("cero", lambda: {"value": 0, "source": "test"}),
+        ):
+            with self.subTest(roto=name):
+                self.sources(eur_bcv=broken)
+                self.assertEqual(self.run_main(), 0)
+
+                document = self.read()
+                self.assertEqual(document["failed"], ["eur_bcv"])
+                self.assertEqual(document["rates"]["eur_bcv"]["value"], 982.75)
+                self.assertTrue(document["rates"]["eur_bcv"]["stale"])
+                self.assertIn("error", document["rates"]["eur_bcv"])
+                # The other euro reading, and the pair that depends on it, are
+                # untouched by one broken source.
+                self.assertEqual(document["rates"]["eur_paralelo"]["value"], 1125.469688)
+                self.assertFalse(document["rates"]["eur_paralelo"]["stale"])
 
 
 if __name__ == "__main__":
