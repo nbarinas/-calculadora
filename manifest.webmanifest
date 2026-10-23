@@ -1,7 +1,7 @@
 {
-  "name": "Calculadora COP · USD · Bs",
-  "short_name": "COP·USD·Bs",
-  "description": "Conversor entre pesos colombianos, dólares y bolívares con la TRM, el BCV y el paralelo de Binance P2P.",
+  "name": "Calculadora COP · USD · Bs · EUR",
+  "short_name": "COP·USD·Bs·EUR",
+  "description": "Conversor entre pesos colombianos, dólares, bolívares y euros con la TRM, el BCV y el paralelo de Binance P2P.",
   "lang": "es",
   "start_url": "./",
   "scope": "./",

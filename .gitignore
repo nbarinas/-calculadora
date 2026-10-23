@@ -4,3 +4,8 @@
 # Python bytecode caches, left behind by running the tests.
 __pycache__/
 *.pyc
+
+# Personal documents that once lived in this directory. They are not part of the
+# app, and this repository is public: a stray `git add .` must not publish them.
+/Carta presentacion.pdf
+/carta-tendero/

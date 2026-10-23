@@ -1,17 +1,40 @@
-# Calculator: COP · USD · Bs
+# Calculator: COP · USD · Bs · EUR
 
 One static page for a trip from Bogotá to Venezuela: convert between Colombian
-pesos, US dollars and bolívares with the three rates side by side.
+pesos, US dollars, bolívares and euros with every rate side by side.
 
 | Rate | What it is |
 |------|------------|
 | TRM | Colombia's official reference rate, from datos.gov.co |
 | BCV | Venezuela's official rate |
 | Binance P2P | the USDT/VES parallel rate that is actually used in the street |
+| Euro BCV | the BCV's euro, quoted in bolívares per euro |
+| Euro paralelo | the street euro, also quoted in bolívares per euro |
 
-The page shows all three. The BCV rate is the formal reference, and in practice
+The page shows all five. The BCV rate is the formal reference, and in practice
 people in Venezuela deal at the parallel rate, so the calculator never picks one
 for you: it labels every line with the rate it used.
+
+## The euro crosses along a coherent pair
+
+The euro is quoted in Venezuela only in bolívares, so converting it against the
+dollar or the peso has to divide by a dollar rate, and there are two of those.
+Each line is therefore built from **one pair of rates of the same market**:
+
+| Pair | Bs per USD | Bs per EUR |
+|------|------------|------------|
+| oficial | BCV | Euro BCV |
+| paralelo | Binance P2P | Euro paralelo |
+
+An official euro over a street dollar would be a number no counter in Venezuela
+gives, so it is never computed. The peso is anchored to the dollar by the TRM,
+which is Colombia's, so COP↔USD is the one conversion that needs no pair and
+keeps its single line. Every other conversion shows one labelled line per pair.
+
+Binance P2P cannot supply the street euro: asked for EUR/VES it answers
+`data: []`, `total: 0`, because that order book does not exist there. Both euro
+readings come from DolarApi, which is also what the in-page refresh button uses,
+since both euro endpoints allow CORS.
 
 ## How the rates get there
 
@@ -28,7 +51,8 @@ problem, and GitHub Pages serves the whole thing for free.
 
 If a source is down, the fetcher keeps the previous value and marks it `stale`
 instead of destroying the file, and the page falls back to the copy it cached in
-`localStorage`. Every rate can also be typed in by hand.
+`localStorage`. Every one of the five rates can also be typed in by hand, and a
+typed euro moves only the lines that use its own pair.
 
 ## Local development
 
