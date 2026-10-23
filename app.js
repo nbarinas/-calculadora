@@ -15,18 +15,28 @@
   } = window.Calc;
 
   const SOURCE_LABEL = {
-    bcv: 'BCV',
-    binance: 'Binance P2P',
+    oficial: 'BCV',
+    paralelo: 'Binance P2P',
   };
   const SOURCE_HINT = {
-    bcv: 'referencia formal',
-    binance: 'lo que te dan al vender USDT',
+    oficial: 'referencia formal',
+    paralelo: 'lo que te dan al vender USDT',
+  };
+  // When the euro is on either side of the conversion, the label names the euro
+  // reading instead: that is the rate which moves, and the dollar leg is the one
+  // paired with it, never the other market's.
+  const EURO_LABEL = {
+    oficial: 'Euro BCV',
+    paralelo: 'Euro paralelo',
   };
   const RATE_ROWS = [
     { key: 'trm', label: 'TRM', hint: 'Colombia, oficial' },
     { key: 'bcv', label: 'BCV', hint: 'Venezuela, oficial' },
     { key: 'binance', label: 'Binance P2P', hint: 'USDT/VES, paralelo' },
+    { key: 'eur_bcv', label: 'Euro BCV', hint: 'EUR/VES, oficial' },
+    { key: 'eur_paralelo', label: 'Euro paralelo', hint: 'EUR/VES, paralelo' },
   ];
+  const RATE_LABEL = Object.fromEntries(RATE_ROWS.map((row) => [row.key, row.label]));
 
   const CACHE_KEY = 'calc.rates.cache';
   const MANUAL_KEY = 'calc.rates.manual';
@@ -139,6 +149,31 @@
     }
   }
 
+  function lineLabel(target, path) {
+    const euro = state.from === 'EUR' || target === 'EUR';
+    return euro ? EURO_LABEL[path] : SOURCE_LABEL[path];
+  }
+
+  /**
+   * What produced this line, said in one short phrase.
+   *
+   * A conversion that touches the euro but not the bolívar is the only one that
+   * divides two rates, so it is the only one that has to say so: `euro BCV ÷
+   * dólar BCV` is the whole explanation of the number, and it is also the reason
+   * the two lines differ.
+   */
+  function lineHint(target, path) {
+    const euro = state.from === 'EUR' || target === 'EUR';
+    const ves = state.from === 'VES' || target === 'VES';
+    if (euro && ves) {
+      return path === 'oficial' ? 'referencia formal' : 'lo que te dan al vender EUR';
+    }
+    if (euro) {
+      return path === 'oficial' ? 'euro BCV ÷ dólar BCV' : 'euro paralelo ÷ dólar paralelo';
+    }
+    return SOURCE_HINT[path];
+  }
+
   function renderResults() {
     const container = document.getElementById('results');
     const rates = currentRates();
@@ -157,13 +192,13 @@
         head.append(el('span', 'result-value', formatAmount(row.lines[0].value)));
         block.append(head);
       } else {
-        // The conversion depends on which bolívar rate is in play, so every
+        // The conversion depends on which coherent pair is in play, so every
         // line is labelled instead of picking one for the user.
         block.append(head);
         for (const line of row.lines) {
           const lineEl = el('div', 'line');
-          const left = el('span', 'line-source', SOURCE_LABEL[line.source]);
-          left.append(el('span', 'line-hint', SOURCE_HINT[line.source]));
+          const left = el('span', 'line-source', lineLabel(row.target, line.path));
+          left.append(el('span', 'line-hint', lineHint(row.target, line.path)));
           lineEl.append(left, el('span', 'line-value', formatAmount(line.value)));
           block.append(lineEl);
         }
@@ -257,9 +292,9 @@
   }
 
   /**
-   * Ask the three sources directly, because waiting half an hour for the
-   * scheduled workflow is sometimes not good enough. Two of the three can be
-   * reached from a page and the third cannot; see LIVE_SOURCES in calc.js.
+   * Ask the five sources directly, because waiting half an hour for the
+   * scheduled workflow is sometimes not good enough. Four of the five can be
+   * reached from a page and the fifth cannot; see LIVE_SOURCES in calc.js.
    *
    * A source that does not answer keeps the value it already had and is marked
    * stale, so a partial refresh is never presented as a complete one.
@@ -267,7 +302,7 @@
   async function refreshLive() {
     const button = document.getElementById('refresh');
     button.disabled = true;
-    setRefreshStatus('Consultando las tres fuentes…');
+    setRefreshStatus('Consultando las cinco fuentes…');
 
     const readings = {};
     await Promise.all(LIVE_SOURCES.map(async (source) => {
@@ -292,7 +327,7 @@
     renderAll();
 
     setRefreshStatus(state.rates.failed.length
-      ? `No respondió: ${state.rates.failed.join(', ')}. Se sigue con lo que había.`
+      ? `No respondió: ${state.rates.failed.map((key) => RATE_LABEL[key] || key).join(', ')}. Se sigue con lo que había.`
       : 'Tasas pedidas de nuevo, en vivo.');
     button.disabled = false;
   }

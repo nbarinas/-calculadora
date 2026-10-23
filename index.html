@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Calculadora COP · USD · Bs</title>
-<meta name="description" content="Conversor entre pesos colombianos, dólares y bolívares con la TRM, el BCV y el paralelo de Binance P2P.">
+<title>Calculadora COP · USD · Bs · EUR</title>
+<meta name="description" content="Conversor entre pesos colombianos, dólares, bolívares y euros con la TRM, el BCV y el paralelo de Binance P2P.">
 <meta name="theme-color" content="#0b1220">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
@@ -15,7 +15,7 @@
 <body>
 
 <header class="top">
-  <h1>Pesos · Dólares · Bolívares</h1>
+  <h1>Pesos · Dólares · Bolívares · Euros</h1>
   <p class="updated" id="updated">Cargando tasas…</p>
 </header>
 
@@ -33,6 +33,7 @@
       <button type="button" role="tab" data-currency="COP" aria-selected="true">COP</button>
       <button type="button" role="tab" data-currency="USD" aria-selected="false">USD</button>
       <button type="button" role="tab" data-currency="VES" aria-selected="false">Bolívares</button>
+      <button type="button" role="tab" data-currency="EUR" aria-selected="false">Euros</button>
     </div>
 
     <div id="results" class="results" aria-live="polite"></div>
@@ -53,7 +54,7 @@
   <section class="card note">
     <h2>Ojo con el BCV</h2>
     <p>La tasa del BCV es la referencia formal. Para cambiar plata en Venezuela se usa el
-       paralelo de Binance. Por eso te mostramos los tres números: vos decidís cuál te están dando.</p>
+       paralelo de Binance. Por eso te mostramos todos los números: vos decidís cuál te están dando.</p>
   </section>
 
   <noscript>
@@ -64,7 +65,7 @@
 </main>
 
 <footer class="foot">
-  <p>TRM (datos.gov.co) · BCV (dolarapi.com) · Binance P2P USDT/VES.
+  <p>TRM (datos.gov.co) · BCV, euro BCV y paralelos (dolarapi.com) · Binance P2P USDT/VES.
      Se actualizan solas cada 30 minutos.</p>
 </footer>
 

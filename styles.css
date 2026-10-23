@@ -88,7 +88,8 @@ main { max-width: 560px; margin: 0 auto; }
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* Four currencies: COP, USD, Bolívares, Euros. */
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   margin-top: 14px;
   padding: 4px;
@@ -97,9 +98,12 @@ main { max-width: 560px; margin: 0 auto; }
 }
 
 .tabs button {
-  padding: 11px 4px;
+  padding: 11px 2px;
   font: inherit;
+  /* Four labels on a 320px screen: "Bolívares" has to fit in one column. */
+  font-size: 0.84rem;
   font-weight: 600;
+  white-space: nowrap;
   color: var(--muted);
   background: transparent;
   border: 0;

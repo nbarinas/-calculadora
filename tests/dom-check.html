@@ -30,6 +30,22 @@ function done() {
   out.textContent = lines.join('\n');
 }
 
+/* The result blocks are read by the currency they lead to, so adding the euro
+   cannot silently change what an earlier assertion was looking at. */
+function blockFor(doc, label) {
+  return [...doc.querySelectorAll('.result')]
+    .find((block) => block.querySelector('.result-target').textContent.includes(label));
+}
+
+function linesFor(doc, label) {
+  return [...blockFor(doc, label).querySelectorAll('.line-value')].map((n) => n.textContent);
+}
+
+function labelsFor(doc, label) {
+  return [...blockFor(doc, label).querySelectorAll('.line-source')]
+    .map((n) => n.firstChild.nodeValue);
+}
+
 window.addEventListener('load', () => {
   setTimeout(() => {
     try {
@@ -46,7 +62,7 @@ window.addEventListener('load', () => {
 
       // 2. The result must be built on 1011.5, not on 1011500 and not on the
       //    fetched rate. Only 1011.5 produces 317.907,81 here.
-      say('resultado en Bs', [...doc.querySelectorAll('.line-value')].map((n) => n.textContent));
+      say('resultado en Bs', linesFor(doc, 'Bs'));
 
       // 3. An amount that could be read two ways must say which one was used.
       type(win, doc.getElementById('amount'), '1000.500');
@@ -55,11 +71,40 @@ window.addEventListener('load', () => {
       // 4. Clearing the field must drop the override instead of using zero.
       type(win, binance, '');
       say('el boton de volver se esconde', doc.getElementById('reset-rates').hidden);
-      say('vuelve la tasa automatica', [...doc.querySelectorAll('.line-value')].map((n) => n.textContent));
+      say('vuelve la tasa automatica', linesFor(doc, 'Bs'));
 
-      // 5. The refresh button has to reach the live sources from the browser.
-      //    TRM and both DolarApi rates are reachable; Binance P2P is not, which
-      //    is why the button asks DolarApi for both Venezuelan rates.
+      // 5. The euro: a fourth currency, five rates, and one line per coherent
+      //    pair. With 10 EUR on screen the two Bs lines are the two euro
+      //    readings of the live file, and COP crosses each of them with its own
+      //    dollar, never with the other market's.
+      type(win, doc.getElementById('amount'), '10');
+      doc.querySelector('#currency button[data-currency="EUR"]').click();
+      say('pestanas de moneda',
+        [...doc.querySelectorAll('#currency button')].map((b) => b.dataset.currency));
+      say('claves de las cinco tasas',
+        [...doc.querySelectorAll('.rate-input')].map((n) => n.dataset.key));
+      say('destinos desde EUR',
+        [...doc.querySelectorAll('.result-target')].map((n) => n.textContent));
+      say('etiquetas en Bs', labelsFor(doc, 'Bs'));
+      say('etiquetas en COP', labelsFor(doc, 'COP'));
+      say('10 EUR a Bs', linesFor(doc, 'Bs'));
+      say('10 EUR a COP', linesFor(doc, 'COP'));
+
+      // 6. A euro typed by hand must win like the dollar ones, and it must move
+      //    only its own line: the official pair cannot follow the street euro.
+      const usdOficial = () => linesFor(doc, 'USD')[0];
+      const euroParalelo = doc.querySelector('[data-key="eur_paralelo"]');
+      say('EUR a USD oficial antes', usdOficial());
+      type(win, euroParalelo, '2000');
+      say('EUR a USD oficial despues', usdOficial());
+      say('EUR a USD paralelo despues', linesFor(doc, 'USD')[1]);
+      say('10 EUR a Bs con el paralelo a mano', linesFor(doc, 'Bs'));
+      type(win, euroParalelo, '');
+
+      // 7. The refresh button has to reach the live sources from the browser.
+      //    TRM, both DolarApi dollar rates and both euro rates are reachable;
+      //    Binance P2P is not, which is why the button asks DolarApi for both
+      //    Venezuelan dollar rates.
       say('existe el boton de actualizar', Boolean(doc.getElementById('refresh')));
       doc.getElementById('refresh').click();
 

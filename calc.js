@@ -11,9 +11,34 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  const CURRENCIES = ['COP', 'USD', 'VES'];
-  const VES_SOURCES = ['bcv', 'binance'];
-  const UNIT = { COP: 'COP', USD: 'USD', VES: 'Bs' };
+  const CURRENCIES = ['COP', 'USD', 'VES', 'EUR'];
+  const UNIT = { COP: 'COP', USD: 'USD', VES: 'Bs', EUR: '€' };
+
+  /**
+   * Every rate the app reads, in the order the page shows them.
+   *
+   * `binance` is the parallel dollar and `eur_paralelo` the parallel euro; the
+   * name of the first one survives from when Binance P2P was its only source,
+   * and the entry's own `source` field is what tells the page where a number
+   * actually came from.
+   */
+  const RATE_KEYS = ['trm', 'bcv', 'binance', 'eur_bcv', 'eur_paralelo'];
+
+  /**
+   * The two coherent paths, and nothing in between.
+   *
+   * The euro is quoted in Venezuela only in bolívares, so a conversion that
+   * touches the euro has to divide by a dollar rate, and there are two of those.
+   * Each path pairs a dollar reading with the euro reading of the same market:
+   * the BCV dollar with the BCV euro, the street dollar with the street euro.
+   * Mixing them (an official euro over a street dollar) yields a number no
+   * counter in Venezuela would give, so it is never computed.
+   */
+  const PATHS = ['oficial', 'paralelo'];
+  const PATH_RATES = {
+    oficial: { usd: 'bcv', eur: 'eur_bcv' },
+    paralelo: { usd: 'binance', eur: 'eur_paralelo' },
+  };
 
   // Local Colombian formatting, which is also what Venezuela uses.
   const amountFormat = new Intl.NumberFormat('es-CO', {
@@ -150,26 +175,77 @@
   }
 
   /**
-   * Convert `amount` from one currency to another.
+   * A rate the page can compute with: a finite positive number.
    *
-   * Every rate is quoted per US dollar, so a single intermediate step covers
-   * all six directions. `vesSource` picks which bolívar rate is in play.
+   * Zero is not a rate, it is a missing rate written wrong, and dividing by it
+   * turns every result into Infinity. The verifier found this reachable through
+   * the new euro path and through the TRM, so both sides of the function use the
+   * same guard.
+   */
+  function usableRate(value) {
+    return isNumber(value) && value > 0;
+  }
+
+  /**
+   * The bolívar value of one unit of `currency` along one coherent path.
+   * Null when that path's rate is missing, so the page shows a dash instead of
+   * a number built on a rate nobody published.
+   */
+  function pathRate(currency, rates, path) {
+    const keys = PATH_RATES[path];
+    if (!keys) return null;
+    const value = (rates || {})[currency === 'EUR' ? keys.eur : keys.usd];
+    return usableRate(value) ? value : null;
+  }
+
+  /**
+   * Convert `amount` from one currency to another along one coherent path.
+   *
+   * Everything is expressed in bolívares and then back out, because the bolívar
+   * is the only unit every rate in the file has in common: the dollar and the
+   * euro are both quoted in Bs, and the peso is anchored to the dollar by the
+   * TRM. COP↔USD therefore needs no path at all, and keeps its single line.
+   *
    * Returns null when a rate the conversion needs is missing, so the page can
    * show a dash instead of inventing a number.
    */
-  function convert(amount, from, to, rates, vesSource) {
-    const needsTrm = from === 'COP' || to === 'COP';
-    const needsVes = vesSource === 'bcv' || vesSource === 'binance';
-    if (needsTrm && !isNumber(rates.trm)) return null;
-    if (needsVes && !isNumber(rates[vesSource])) return null;
+  function convert(amount, from, to, rates, path) {
+    if (from === to) return amount;
+    const table = rates || {};
 
-    const usd = from === 'USD' ? amount
-      : from === 'COP' ? amount / rates.trm
-        : amount / rates[vesSource];
+    // Colombia's own pair. The TRM anchors the peso to the dollar, and neither
+    // the euro nor the bolívar enters it, so this conversion needs no path and
+    // must keep working when every Venezuelan rate is missing.
+    const colombiaOnly = (from === 'COP' && to === 'USD')
+      || (from === 'USD' && to === 'COP');
+    if (colombiaOnly) {
+      if (!usableRate(table.trm)) return null;
+      return from === 'COP' ? amount / table.trm : amount * table.trm;
+    }
 
-    return to === 'USD' ? usd
-      : to === 'COP' ? usd * rates.trm
-        : usd * rates[vesSource];
+    const usdInVes = pathRate('USD', table, path);
+    const eurInVes = pathRate('EUR', table, path);
+
+    let ves;
+    if (from === 'VES') {
+      ves = amount;
+    } else if (from === 'EUR') {
+      if (eurInVes === null) return null;
+      ves = amount * eurInVes;
+    } else if (from === 'USD') {
+      if (usdInVes === null) return null;
+      ves = amount * usdInVes;
+    } else {
+      // COP, which only reaches the bolívar through the TRM.
+      if (!usableRate(table.trm) || usdInVes === null) return null;
+      ves = amount / table.trm * usdInVes;
+    }
+
+    if (to === 'VES') return ves;
+    if (to === 'EUR') return eurInVes === null ? null : ves / eurInVes;
+    if (to === 'USD') return usdInVes === null ? null : ves / usdInVes;
+    if (!usableRate(table.trm) || usdInVes === null) return null;
+    return ves / usdInVes * table.trm;
   }
 
   /**
@@ -182,7 +258,7 @@
    */
   function effectiveRates(fileRates, manual, keys) {
     const out = {};
-    for (const key of keys || ['trm', 'bcv', 'binance']) {
+    for (const key of keys || RATE_KEYS) {
       const typed = (manual || {})[key];
       const fetched = (fileRates || {})[key] || {};
       out[key] = isNumber(typed) && typed > 0 ? typed
@@ -194,17 +270,22 @@
 
   /**
    * What the page renders: one entry per target currency, and one line per
-   * bolívar rate whenever that conversion depends on it.
+   * coherent path whenever the conversion depends on which one is in play.
+   *
+   * Only COP↔USD is path-independent, because the TRM is Colombia's own rate and
+   * neither the euro nor the bolívar enters it. Everything else is shown twice,
+   * labelled, instead of the app electing one path as the true one.
    */
   function resultRows(amount, from, rates) {
     return CURRENCIES.filter((currency) => currency !== from).map((target) => {
-      const usesVes = from === 'VES' || target === 'VES';
-      const sources = usesVes ? VES_SOURCES : [null];
+      const colombiaOnly = (from === 'COP' && target === 'USD')
+        || (from === 'USD' && target === 'COP');
+      const paths = colombiaOnly ? [null] : PATHS;
       return {
         target,
-        lines: sources.map((vesSource) => ({
-          source: vesSource,
-          value: convert(amount, from, target, rates, vesSource),
+        lines: paths.map((path) => ({
+          path,
+          value: convert(amount, from, target, rates, path),
         })),
       };
     });
@@ -230,14 +311,17 @@
   }
 
   /**
-   * The three sources a page can reach directly from the browser.
+   * The five sources a page can reach directly from the browser.
    *
    * Binance P2P is not one of them: its preflight answers without CORS headers,
    * so the browser blocks the request no matter what the page does. DolarApi
    * publishes the same parallel reference and does allow it, and the two were
    * measured within 0.15% of each other, so the live path uses DolarApi for both
-   * Venezuelan rates. The workflow still fetches Binance directly, where there is
-   * no browser to block it.
+   * Venezuelan dollar rates. The workflow still fetches Binance directly, where
+   * there is no browser to block it.
+   *
+   * The two euro rates come from DolarApi as well, and there is no alternative to
+   * fall back to: asked for EUR/VES, Binance P2P answers an empty book.
    */
   const LIVE_SOURCES = [
     {
@@ -258,6 +342,18 @@
       source: 've.dolarapi.com',
       read: readDolarApi,
     },
+    {
+      key: 'eur_bcv',
+      url: 'https://ve.dolarapi.com/v1/euros/oficial',
+      source: 've.dolarapi.com',
+      read: readDolarApi,
+    },
+    {
+      key: 'eur_paralelo',
+      url: 'https://ve.dolarapi.com/v1/euros/paralelo',
+      source: 've.dolarapi.com',
+      read: readDolarApi,
+    },
   ];
 
   /**
@@ -271,7 +367,7 @@
     const base = (previous && previous.rates) || {};
     const rates = {};
 
-    for (const key of ['trm', 'bcv', 'binance']) {
+    for (const key of RATE_KEYS) {
       const reading = readings ? readings[key] : null;
       const kept = base[key] || {};
 
@@ -296,10 +392,13 @@
 
   return {
     CURRENCIES,
-    VES_SOURCES,
+    RATE_KEYS,
+    PATHS,
+    PATH_RATES,
     LIVE_SOURCES,
     UNIT,
     isNumber,
+    usableRate,
     parseAmount,
     parseRate,
     interpretationNote,
