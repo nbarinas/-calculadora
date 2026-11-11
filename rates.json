@@ -1,15 +1,12 @@
 {
-  "updatedAt": "2026-11-10T21:23:08Z",
-  "failed": [
-    "trm"
-  ],
+  "updatedAt": "2026-11-11T01:23:37Z",
+  "failed": [],
   "rates": {
     "trm": {
-      "value": 3269.88,
-      "asOf": "2026-11-10T00:00:00.000",
+      "value": 3297.07,
+      "asOf": "2026-11-11T00:00:00.000",
       "source": "datos.gov.co",
-      "stale": true,
-      "error": "HTTPError: HTTP Error 503: Service Unavailable"
+      "stale": false
     },
     "bcv": {
       "value": 899.2705,
@@ -18,16 +15,16 @@
       "stale": false
     },
     "binance": {
-      "value": 1084.0,
+      "value": 1076.45,
       "asOf": null,
       "source": "p2p.binance.com",
-      "sellMedian": 1084.0,
-      "buyMedian": 1086.45,
+      "sellMedian": 1076.45,
+      "buyMedian": 1078.0,
       "samples": {
         "sell": 20,
         "buy": 20
       },
-      "roundTripPct": 0.226,
+      "roundTripPct": 0.144,
       "stale": false
     },
     "eur_bcv": {
