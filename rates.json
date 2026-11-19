@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-19T01:21:36Z",
+  "updatedAt": "2026-11-19T09:14:14Z",
   "failed": [],
   "rates": {
     "trm": {
@@ -9,33 +9,33 @@
       "stale": false
     },
     "bcv": {
-      "value": 916.6477,
-      "asOf": "2026-11-18T00:00:00-04:00",
+      "value": 917.7751,
+      "asOf": "2026-11-19T00:00:00-04:00",
       "source": "ve.dolarapi.com",
       "stale": false
     },
     "binance": {
-      "value": 1073.14,
+      "value": 1070.0,
       "asOf": null,
       "source": "p2p.binance.com",
-      "sellMedian": 1073.14,
-      "buyMedian": 1075.7,
+      "sellMedian": 1070.0,
+      "buyMedian": 1075.98,
       "samples": {
         "sell": 19,
         "buy": 19
       },
-      "roundTripPct": 0.2386,
+      "roundTripPct": 0.5589,
       "stale": false
     },
     "eur_bcv": {
-      "value": 1007.38665582,
-      "asOf": "2026-11-18T00:00:00-04:00",
+      "value": 1007.39583851,
+      "asOf": "2026-11-19T00:00:00-04:00",
       "source": "ve.dolarapi.com",
       "stale": false
     },
     "eur_paralelo": {
-      "value": 1178.230384,
-      "asOf": "2026-11-18T21:01:07.367Z",
+      "value": 1174.493179,
+      "asOf": "2026-11-19T04:02:02.334Z",
       "source": "ve.dolarapi.com",
       "stale": false
     }
